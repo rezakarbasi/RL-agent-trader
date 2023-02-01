@@ -29,7 +29,6 @@ string SocketSendGet(string toPrint){
             return SocketSendGet(toPrint);
          }
       }
-      Print(timeout);
       return read;
    }
    return "";
