@@ -66,8 +66,6 @@ while(True):
             if epsilon<epsThresh:
                 epsDecay=0.9
                 
-            # rl.optimizer = torch.optim.RMSprop(rl.model.parameters(), lr=1e-3)
-            # rl.scheduler = torch.optim.lr_scheduler.StepLR(rl.optimizer, step_size=100000, gamma=0.93)
             epsilon*=epsDecay
             epsCounter=0
 

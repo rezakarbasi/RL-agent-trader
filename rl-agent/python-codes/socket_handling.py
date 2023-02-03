@@ -28,8 +28,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
         response = np.random.choice(ThreadedTCPRequestHandler.actions)
         if not isinstance(ThreadedTCPRequestHandler.model, type(None)):
-            qVal = (ThreadedTCPRequestHandler.model.testData(torch.tensor([*encoded[1]]))).cpu().detach().numpy()
-            prob = np.exp(qVal/ThreadedTCPRequestHandler.epsilon)
+            qVal = (ThreadedTCPRequestHandler.model.testData(torch.tensor([[*encoded[1]]]))).cpu().detach().numpy()
+            prob = np.exp(qVal/ThreadedTCPRequestHandler.epsilon)[0]
             prob /= np.sum(prob)
             response = np.random.choice(ThreadedTCPRequestHandler.actions,p=prob)
             
