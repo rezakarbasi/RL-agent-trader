@@ -39,6 +39,8 @@ actions = np.array([1,2,3])
 rl = RLAgent(discount_factor=0.99,hidden_size = 50, input_size=15, actions = actions,
              learningRate=1e-5,device='cpu',stepSize=1000,gamma=0.93)
 
+rewards = []
+
 while(True):
     time.sleep(0.1)
     if len(rl.trainLosses)>0:
@@ -47,6 +49,10 @@ while(True):
         print(f"\r{get_len_input_list()} {epsCounter} {epsilon} {np.nan}", end="")
     if(get_len_input_list() > 100):
         records = get_input_list()
+
+        rewards.append(
+            np.mean([record[2][0] for record in records])
+        )
 
         rl.trainData(records,epochs,batchSize)
         rl.dp.selection(max_memory_capacity)
@@ -66,12 +72,19 @@ while(True):
             epsCounter=0
 
             print('new epsilon ' ,epsilon)
-            torch.save(rl.model, 'model.chkpt')
+            torch.save(rl.model, 'tmp/model.chkpt')
         
             plt.plot(rl.trainLosses)
             plt.yscale('log')
-            plt.savefig("losses.png")
-            plt.show()
+            plt.title("Losses")
+            plt.xlabel("steps")
+            plt.savefig("tmp/losses.png")
+            plt.close()
+
+            plt.plot(rewards)
+            plt.title("Rewards")
+            plt.xlabel("steps")
+            plt.savefig("tmp/rewards.png")
             plt.close()
         
         set_epsilon(epsilon)

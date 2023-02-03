@@ -73,33 +73,32 @@ class NeuralNetwork(nn.Module):
         self.hidden_size = hidden_size
         self.output_size = output_size
     
-        self.lin1 = nn.Linear(input_size , 30)
-        self.lin2 = nn.Linear(30, hidden_size)
+        self.lin1 = nn.Linear(input_size , hidden_size)
+        self.lin2 = nn.Linear(hidden_size, hidden_size)
         self.lin3 = nn.Linear(hidden_size, hidden_size)
         self.lin4 = nn.Linear(hidden_size, output_size)
-        # self.lin5 = nn.Linear(hidden_size, hidden_size)
-        # self.lin6 = nn.Linear(hidden_size, hidden_size)
-        # self.lin7 = nn.Linear(hidden_size, hidden_size)
-        # self.lin8 = nn.Linear(hidden_size, output_size)
+
+        self.bn1 = nn.BatchNorm1d(hidden_size)
+        self.bn2 = nn.BatchNorm1d(hidden_size)
+        self.bn3 = nn.BatchNorm1d(hidden_size)
+        self.bn4 = nn.BatchNorm1d(output_size)
                 
     def forward(self, inputs):
         o=self.lin1(inputs)
+        o=self.bn1(o)
         o=F.relu(o)
+
         o=self.lin2(o)
+        o=self.bn2(o)
         o=F.relu(o)
+
         o=self.lin3(o)
+        o=self.bn3(o)
         o=F.relu(o)
+
         o=self.lin4(o)
-        # o=F.relu(o)
-        # o=self.lin5(o)
-        # o=F.relu(o)
-        # o=self.lin6(o)
-        # o=F.relu(o)
-        # o=self.lin7(o)
-        # o=F.relu(o)
-        # o=self.lin8(o)
-        # o=self.lin4(o)
-        # o=self.lin5(o)
+        o=self.bn4(o)
+        
         return o
 
 class RLAgent:
@@ -116,7 +115,6 @@ class RLAgent:
 #        self.dl = DataLoader(dp, batch_size=batchSize,shuffle=True, num_workers=4)
         self.loss_fn = torch.nn.MSELoss()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learningRate,momentum=momentum)
-        # self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=learningRate)
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=stepSize, gamma=gamma)
         
         self.trainLosses=[]
@@ -182,80 +180,3 @@ class RLAgent:
         self.copyModel.eval()
         data=data.to(self.device)
         return self.copyModel(data)
-
-# rl = RLAgent(learningRate=1e-6,hidden_size = 20,device='cpu',input_size=3,output_size=3,momentum=0.9)
-# for _ in range(1):
-#     rl.dp.addRandom(1000)
-#     rl.trainData([],10,10)
-# #     rl.dp.selection(800)
-
-# self=rl
-
-# import matplotlib.pyplot as plt
-# plt.plot(rl.trainLosses)
-# plt.yscale('log')
-# plt.show()
-
-# print(rl.trainLosses)
-# rl.copyModel.forward(torch.tensor([6.1,8,5,10,11]))
-
-# rl.dp.X1.shape[0]
-# %matplotlib inline        
-            
-            
-#model = NeuralNetwork()
-#model.dp.addRandom(100)
-#model.trainData([],100,15)
-#
-#import matplotlib.pyplot as plt
-#plt.plot(model.trainLosses)
-#plt.yscale('log')
-
-#epochs = 100
-#discount_factor = 0.99
-#batchSize = 15
-#learningRate=1e-5
-#
-#dp = DataPrepare()
-#dp.addRandom(100)
-#model = NeuralNetwork()
-#dl = DataLoader(dp, batch_size=batchSize,shuffle=True, num_workers=4)
-#
-#loss_fn = torch.nn.MSELoss()
-#optimizer = torch.optim.SGD(model.parameters(), lr=learningRate)
-#scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.95)
-#
-#sum_loss=0
-#trainLosses=[]
-#testLosses=[]
-#
-#self = model
-#
-#for _ in range(epochs):
-#    idxs = np.random.choice(len(dp),len(dp),False)
-#    sum_loss = 0
-#    
-#    for j in range(int(len(dp)/batchSize)):
-#        idx = idxs[j*batchSize:(j+1)*batchSize]
-#        X1 , X2 , action , reward = dp[idx]
-#        
-#        q_value = model.forward(X2)
-#        a=action.long()
-#        b=torch.arange(batchSize).long()
-#        q_value[(b,a)]=discount_factor*q_value[(b,a)]+reward
-#        q_value=q_value.detach()
-#        
-#        model.train()
-#        optimizer.zero_grad()
-#        
-#        q_pred = model(X1)
-#        loss = loss_fn(q_value,q_pred)
-#        loss.backward()
-#        optimizer.step()
-#
-#        sum_loss += loss.item()
-#        
-##        print(list(model.parameters()))
-#    
-#    scheduler.step()
-#    trainLosses+=[sum_loss]
