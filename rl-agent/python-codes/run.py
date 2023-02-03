@@ -33,7 +33,7 @@ class RunSocket(Thread):
         global connector
     
         counter=0
-        action=0;
+        action=0
 
         while True:
             global epsilon
@@ -181,9 +181,9 @@ class RunNetWork(Thread):
 
 # 2 inputs + distance to stoploss input
 # 3 outputs for each Q value
-actions = np.array([16,36,43])
-rl = RLAgent(discount_factor=0.99,hidden_size = 20, input_size=3, output_size = 3,
-             learningRate=1e-5,device='cuda',stepSize=1000,gamma=0.93)
+actions = np.array([1,2,3])
+rl = RLAgent(discount_factor=0.99,hidden_size = 50, input_size=3, output_size = len(actions),
+             learningRate=1e-5,device='cpu',stepSize=1000,gamma=0.93)
 
 aa={}
 # for j,i in enumerate(actions):

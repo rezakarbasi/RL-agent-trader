@@ -1,7 +1,7 @@
 import socket
 
 class MT5Connector:
-    def __init__(self,ip='127.0.0.1',port=65432,bufferSize=1024):
+    def __init__(self,ip='127.0.0.1',port=23456,bufferSize=1024):
         self.ip=ip
         self.port=port
         self.bufferSize=bufferSize
@@ -16,6 +16,9 @@ class MT5Connector:
 
         while self.flag:
             message , addr = self.server.recvfrom(self.bufferSize)
+            print(message)
+            print(addr)
+            self.Send("OK")
             self.message = str(message)[2:-1]
             self.lastAddr = addr
             
