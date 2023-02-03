@@ -2,24 +2,23 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import copy
 
 class DataPrepare(Dataset):
-    def __init__(self,inputSize=3,actions=3,trainPercent = 0.8,maxLen=10000):
-        self.inputSize = inputSize
+    def __init__(self,input_size=3,actions=3,train_percent = 0.8,max_length=10000):
+        self.input_size = input_size
         self.outputSize = len(actions)
         
-        self.trainPercent = trainPercent
-        self.X1  = torch.zeros(1,inputSize)
-        self.X2  = torch.zeros(1,inputSize)
+        self.train_percent = train_percent
+        self.X1  = torch.zeros(1,input_size)
+        self.X2  = torch.zeros(1,input_size)
         self.action = torch.zeros(1)
         self.reward = torch.zeros(1)        
         
-        self.maxLength = maxLen
+        self.maxLength = max_length
         
-        self.actionsDict = {str(float(a)): i for i, a in enumerate(actions)}
+        self.actions_dictionary = {str(float(a)): i for i, a in enumerate(actions)}
     
     def __len__(self):
         return self.X1.shape[0]
@@ -33,14 +32,14 @@ class DataPrepare(Dataset):
             profit = profit[0]
             action = action[0]
             
-            ff=torch.tensor([*state1]).reshape((1,self.inputSize)).float()
+            ff=torch.tensor([*state1]).reshape((1,self.input_size)).float()
             self.X1 = torch.cat((self.X1,ff), 0)
-            ff=torch.tensor([*state2]).reshape((1,self.inputSize)).float()
+            ff=torch.tensor([*state2]).reshape((1,self.input_size)).float()
             self.X2 = torch.cat((self.X2,ff), 0)
             
             self.reward = torch.cat((self.reward,torch.tensor([profit*1.0])))
             
-            self.action = torch.cat((self.action,torch.tensor([self.actionsDict[str(action)]])))
+            self.action = torch.cat((self.action,torch.tensor([self.actions_dictionary[str(action)]])))
 
             
     def selection(self,n):
@@ -101,43 +100,41 @@ class NeuralNetwork(nn.Module):
         
         return o
 
-class RLAgent:
-    def __init__(self,discount_factor=0.9,hidden_size = 10, input_size=5, actions = [1, 2, 3],learningRate=1e-5,
-                 device='cpu',stepSize=1000,gamma=0.98,momentum=0.9):
+class ReinforcementLearningAgent:
+    def __init__(self,discount_factor=0.9,hidden_size = 10, input_size=5, actions = [1, 2, 3],learning_rate=1e-3,
+                 device='cpu',step_size=1000,gamma=0.98,momentum=0.9):
         output_size = len(actions)
         self.device = device
         
         self.model = NeuralNetwork(hidden_size , input_size, output_size).to(self.device)
-        # self.copyModel = copy.deepcopy(self.model).to(self.device)
         self.makeNewCopy()
         
         self.dp = DataPrepare(input_size,actions=actions)
-#        self.dl = DataLoader(dp, batch_size=batchSize,shuffle=True, num_workers=4)
         self.loss_fn = torch.nn.MSELoss()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learningRate,momentum=momentum)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=stepSize, gamma=gamma)
+        self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=learning_rate, momentum=momentum)
+        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=step_size, gamma=gamma)
         
-        self.trainLosses=[]
+        self.train_losses=[]
         
-        self.learningRate=learningRate
+        self.learning_rate=learning_rate
         self.discount_factor = discount_factor
 
         
-    def trainData(self,data=[],epochs=100,batchSize=10):
+    def trainData(self,data=[],epochs=100,batch_size=10):
         self.dp.add(data)
     
         for _ in range(epochs):
             idxs = np.random.choice(len(self.dp),len(self.dp),False)
             sum_loss = 0
             
-            for j in range(int(len(self.dp)/batchSize)):
-                idx = idxs[j*batchSize:(j+1)*batchSize]
+            for j in range(int(len(self.dp)/batch_size)):
+                idx = idxs[j*batch_size:(j+1)*batch_size]
                 X1 , X2 , action , reward = self.dp[idx]
                 
                 q_value = self.model.forward(X2.to(self.device))
                 q_value=q_value.detach()
                 a=action.long()
-                b=torch.arange(batchSize).long()
+                b=torch.arange(batch_size).long()
                 
                 # reward function 
                 # q_value[(b,a)]=(self.discount_factor*q_value[(b,a)]+reward.to(self.device)).float()
@@ -147,15 +144,15 @@ class RLAgent:
                 self.optimizer.zero_grad()
                 
                 q_pred = self.model(X1.to(self.device))
-                notZero = torch.prod(X2==0,axis=1)==0
-                notZero = torch.arange(notZero.shape[0])[notZero]
-                notZero = notZero.long()
+                not_zero = torch.prod(X2==0,axis=1)==0
+                not_zero = torch.arange(not_zero.shape[0])[not_zero]
+                not_zero = not_zero.long()
 
                 # reward function 
                 q=q_pred.clone().detach()
                 q[(b,a)]=reward.to(self.device).float()
                 try:
-                    q[(notZero,a[notZero])]+=(self.discount_factor*torch.max(q[notZero],axis=1).values).float()
+                    q[(not_zero,a[not_zero])]+=(self.discount_factor*torch.max(q[not_zero],axis=1).values).float()
                 except:
                     print('ERROR in nn')
                     pass
@@ -166,17 +163,15 @@ class RLAgent:
         
                 sum_loss += loss.item()
                             
-                self.scheduler.step()
-            self.trainLosses+=[sum_loss*batchSize/self.dp.X1.shape[0]]
+                # self.scheduler.step()
+            self.train_losses+=[sum_loss*batch_size/self.dp.X1.shape[0]]
 
-        # self.copyModel = copy.deepcopy(self.model).to(self.device)
         self.makeNewCopy()
-        # print(self.trainLosses[-1])
         
     def makeNewCopy(self):
-        self.copyModel = copy.deepcopy(self.model).to(self.device)
+        self.copy_model = copy.deepcopy(self.model).to(self.device)
     
     def testData(self,data):
-        self.copyModel.eval()
+        self.copy_model.eval()
         data=data.to(self.device)
-        return self.copyModel(data)
+        return self.copy_model(data)

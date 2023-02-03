@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-from NeuralNetwork import RLAgent
+from reinforcement_learning import ReinforcementLearningAgent
 from socket_handling import ThreadedTCPRequestHandler, ThreadedTCPServer, get_len_input_list, get_input_list, set_model, set_epsilon, set_actions
 
 #%% hyperparameters
@@ -14,15 +14,15 @@ port = 4455
 
 actions = [1,2,3]
 epochs = 3
-batchSize = 100
+batch_size = 100
 
 epsilon = 5
-epsDecay = 0.8
-epsThresh = 0.5
-epsCounter = 0
-epsStep = 10
+epsilon_decay = 0.8
+epsilon_threshold = 0.5
+epsilon_counter = 0
+epsilon_step = 10
 
-max_memory_capacity = 30000
+max_memory_capacity = 30_000
 
 #%% main
 server = ThreadedTCPServer((host, port), ThreadedTCPRequestHandler)
@@ -36,17 +36,17 @@ server_thread.start()
 set_actions(actions)
 
 actions = np.array([1,2,3])
-rl = RLAgent(discount_factor=0.99,hidden_size = 50, input_size=15, actions = actions,
-             learningRate=1e-5,device='cpu',stepSize=1000,gamma=0.93)
+rl = ReinforcementLearningAgent(discount_factor=0.99,hidden_size = 50, input_size=15, actions = actions,
+             learning_rate=1e-4,device='cpu',step_size=1000,gamma=0.93)
 
 rewards = []
 
 while(True):
     time.sleep(0.1)
-    if len(rl.trainLosses)>0:
-        print(f"\r{get_len_input_list()} {epsCounter} {epsilon} {rl.trainLosses[-1]}", end="")
+    if len(rl.train_losses)>0:
+        print(f"\r{get_len_input_list()} {epsilon_counter} {epsilon} {rl.train_losses[-1]}", end="")
     else:
-        print(f"\r{get_len_input_list()} {epsCounter} {epsilon} {np.nan}", end="")
+        print(f"\r{get_len_input_list()} {epsilon_counter} {epsilon} {np.nan}", end="")
     if(get_len_input_list() > 100):
         records = get_input_list()
 
@@ -54,25 +54,25 @@ while(True):
             np.mean([record[2][0] for record in records])
         )
 
-        rl.trainData(records,epochs,batchSize)
+        rl.trainData(records,epochs,batch_size)
         rl.dp.selection(max_memory_capacity)
         
-        if rl.trainLosses[-1]==np.nan:
+        if rl.train_losses[-1]==np.nan:
             print('nan')
 
-        epsCounter += 1
-        if epsCounter>epsStep:
+        epsilon_counter += 1
+        if epsilon_counter>epsilon_step:
             
-            if epsilon<epsThresh:
-                epsDecay=0.9
+            if epsilon<epsilon_threshold:
+                epsilon_decay=0.9
                 
-            epsilon*=epsDecay
-            epsCounter=0
+            epsilon*=epsilon_decay
+            epsilon_counter=0
 
             print('new epsilon ' ,epsilon)
             torch.save(rl.model, 'tmp/model.chkpt')
         
-            plt.plot(rl.trainLosses)
+            plt.plot(rl.train_losses)
             plt.yscale('log')
             plt.title("Losses")
             plt.xlabel("steps")
