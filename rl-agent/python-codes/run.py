@@ -1,198 +1,18 @@
-import numpy as np
-import time
-import sys
-import matplotlib.pyplot as plt
-from threading import Thread
+#%% imports
 import threading
+import time
+import numpy as np
 import torch
+import matplotlib.pyplot as plt
 
-startingTime = int(time.time())
+from NeuralNetwork import RLAgent
+from socket_handling import ThreadedTCPRequestHandler, ThreadedTCPServer, get_len_input_list, get_input_list, set_model, set_epsilon, set_actions
 
-from .MT5Connection import MT5Connector
-from .NeuralNetwork import RLAgent
+#%% hyperparameters
+host = "0.0.0.0"
+port = 4455
 
-#%%
-def fibo(n):
-    a=3
-    b=5
-    for i in range(n):
-        c=a+b
-        a=b
-        b=c
-    return b
-
-class RunSocket(Thread):
-    def __init__(self,rl):
-        super().__init__()
-        self.rl=rl
-        sleep_interval=0
-        self._kill = threading.Event()
-        self._interval = sleep_interval
-
-    def run(self):
-        global connector
-    
-        counter=0
-        action=0
-
-        while True:
-            global epsilon
-
-            prob=[0]
-            try:
-                # print('socket good place')
-                for i in connector.Listen():
-                    counter = 1
-                    
-                    global data
-                    
-                    ######################## TODO : check this each time
-                    steps = i[0]
-                    profit = i[1]
-                    action = i[2]
-                    state1 = i[3:6]
-                    state2 = i[6:]
-                    
-                    profit = float(profit)
-                    if profit<1 and profit>-1:
-                        profit=0
-                    elif profit>20:
-                        profit=20
-                    elif profit<-20:
-                        profit=-20
-                    
-                    # if profit<0:
-                    #     profit*=2
-                    # elif profit>50.0:
-                    #     profit=50.0
-                    # if profit<-80:
-                    #     profit=-80
-                        
-                    # profit-=float(steps)/20
-                    
-                    if i[0]!=0 and i[2]!=0:
-                        data.append([state1,action,profit,steps,state2])
-
-                    # best = torch.argmax(self.rl.testData(torch.tensor([*state2])))
-                    qVal = (self.rl.testData(torch.tensor([*state2]))).cpu().detach().numpy()
-                    prob = np.exp(qVal/epsilon)
-                    prob /= np.sum(prob)
-                    
-                    o=[counter,np.random.choice(actions,p=prob)]
-                    # if np.random.rand()>epsilon:
-                    #     o=[counter,actions[best]]            
-            
-                    connector.Send(o)
-                    
-                    break
-                
-            except:
-                print(prob)
-                print(sys.exc_info()[0])
-                counter+=1
-                if counter>100 :
-                    global th1
-                    global th2
-                    
-                    th1.kill()
-                    th2.kill()
-                    
-                # print('making socket again !')
-                connector.End()
-                connector = MT5Connector()
-
-            is_killed = self._kill.wait(self._interval)
-            if is_killed:
-                connector.End()
-                break
-
-    def kill(self):
-        self._kill.set()
-
-
-class RunNetWork(Thread):
-    def __init__(self, rl,sleep_interval=2):
-        super().__init__()
-        self.rl=rl
-        self._kill = threading.Event()
-        self._interval = sleep_interval
-
-    def run(self):
-        while True:
-            global data
-            # global rl
-
-            if (len(data)<10):
-                is_killed = self._kill.wait(self._interval)
-                if is_killed:
-                    break
-                # print("sleep")
-                continue
-
-            global epsilon
-            global epsDecay
-            global epsThresh
-            global epsCounter
-            global epsStep
-            epsCounter += 1
-            if epsCounter>epsStep:
-                # if epsilon<epsThresh:
-                #     epsDecay=0.98
-                #     rl.optimizer = torch.optim.SGD(rl.model.parameters(), lr=1e-8,momentum=0.9)
-                # else :
-                
-                if epsilon<epsThresh:
-                    epsDecay=0.9
-                    
-                rl.optimizer = torch.optim.SGD(rl.model.parameters(), lr=1e-7,momentum=0.9)
-                rl.scheduler = torch.optim.lr_scheduler.StepLR(rl.optimizer, step_size=100000, gamma=0.93)
-                epsilon*=epsDecay
-                epsCounter=0
-
-                print('new epsilon ' ,epsilon)
-                torch.save(self.rl.model, 'nn model')
-            
-                plt.plot(self.rl.trainLosses)
-                plt.yscale('log')
-                plt.savefig(str(startingTime)+'.png')
-                plt.show()
-                plt.close()
-
-            # print('start learning')
-            print(str(len(data))+' -  epsCounter' + str(epsCounter))
-            
-            d=[i for i in data]
-            data=[]
-            
-            self.rl.trainData(d,epochs,batchSize)
-            self.rl.dp.selection(30000)
-            
-            if self.rl.trainLosses[-1]==np.nan:
-                print('nan')
-                    
-            is_killed = self._kill.wait(self._interval)
-            if is_killed:
-                break
-
-    def kill(self):
-        # global rl
-        torch.save(self.rl.model, 'nn model')
-        self._kill.set()
-
-# 2 inputs + distance to stoploss input
-# 3 outputs for each Q value
-actions = np.array([1,2,3])
-rl = RLAgent(discount_factor=0.99,hidden_size = 50, input_size=3, output_size = len(actions),
-             learningRate=1e-5,device='cpu',stepSize=1000,gamma=0.93)
-
-aa={}
-# for j,i in enumerate(actions):
-#     aa[str(float(fibo(i)))]=j
-for j,i in enumerate(actions):
-    aa[str(i*1.0)]=j
-
-rl.dp.actionsDict = aa
-    
+actions = [1,2,3]
 epochs = 3
 batchSize = 100
 
@@ -201,27 +21,58 @@ epsDecay = 0.8
 epsThresh = 0.5
 epsCounter = 0
 epsStep = 10
-# epsilon = 1
-# epsDecay = 0.95
-# epsThresh = 0.1
-# epsCounter = 0
-# epsStep = 30
 
-data =[]
-d=[]
-connector = MT5Connector()
+max_memory_capacity = 30000
 
-# fileName = (input("enter file name : \n"))
+#%% main
+server = ThreadedTCPServer((host, port), ThreadedTCPRequestHandler)
+server.__enter__()
+ip, port = server.server_address
 
-th1 = RunSocket(rl)
-th2 = RunNetWork(rl,2)
+server_thread = threading.Thread(target=server.serve_forever)
+server_thread.daemon = True
+server_thread.start()
 
-th1.start()
-th2.start()
+set_actions(actions)
 
-a=''
-while a.lower()!="end":
-    a=input('press end and Enter to exit the program !\n')
+actions = np.array([1,2,3])
+rl = RLAgent(discount_factor=0.99,hidden_size = 50, input_size=15, actions = actions,
+             learningRate=1e-5,device='cpu',stepSize=1000,gamma=0.93)
 
-th1.kill()
-th2.kill()
+while(True):
+    time.sleep(0.1)
+    if len(rl.trainLosses)>0:
+        print(f"\r{get_len_input_list()} {epsCounter} {epsilon} {rl.trainLosses[-1]}", end="")
+    else:
+        print(f"\r{get_len_input_list()} {epsCounter} {epsilon} {np.nan}", end="")
+    if(get_len_input_list() > 100):
+        records = get_input_list()
+
+        rl.trainData(records,epochs,batchSize)
+        rl.dp.selection(max_memory_capacity)
+        
+        if rl.trainLosses[-1]==np.nan:
+            print('nan')
+
+        epsCounter += 1
+        if epsCounter>epsStep:
+            
+            if epsilon<epsThresh:
+                epsDecay=0.9
+                
+            # rl.optimizer = torch.optim.RMSprop(rl.model.parameters(), lr=1e-3)
+            # rl.scheduler = torch.optim.lr_scheduler.StepLR(rl.optimizer, step_size=100000, gamma=0.93)
+            epsilon*=epsDecay
+            epsCounter=0
+
+            print('new epsilon ' ,epsilon)
+            torch.save(rl.model, 'model.chkpt')
+        
+            plt.plot(rl.trainLosses)
+            plt.yscale('log')
+            plt.savefig("losses.png")
+            plt.show()
+            plt.close()
+        
+        set_epsilon(epsilon)
+        set_model(rl)

@@ -1,7 +1,6 @@
-import threading
+import numpy as np
+import torch
 import socketserver
-import random
-import time
 import copy
 
 
@@ -13,15 +12,27 @@ def decode_state(state):
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     input_list = []
     model = None
+    epsilon = 100
+    actions = [1,2,3]
 
     def handle(self):
         data = self.request.recv(1024)
-        data = str(data)[2:-1].split("--")
+        # last-state, new-state, reward, action        
+        data = str(data)[2:-1]
+        data = "0" + data if data[0]=="-" else data
+        data = data.split("--")
         encoded = [decode_state(i) for i in data]
+        if encoded[0][0] == 0:
+            encoded[0] = [0 for i in encoded[1]]
         ThreadedTCPRequestHandler.input_list.append(encoded)
-        response = random.sample([1,2,3],1)[0] \
-            if isinstance(ThreadedTCPRequestHandler.model, type(None)) \
-            else ThreadedTCPRequestHandler.model.choose(data)
+
+        response = np.random.choice(ThreadedTCPRequestHandler.actions)
+        if not isinstance(ThreadedTCPRequestHandler.model, type(None)):
+            qVal = (ThreadedTCPRequestHandler.model.testData(torch.tensor([*encoded[1]]))).cpu().detach().numpy()
+            prob = np.exp(qVal/ThreadedTCPRequestHandler.epsilon)
+            prob /= np.sum(prob)
+            response = np.random.choice(ThreadedTCPRequestHandler.actions,p=prob)
+            
         response = bytes(str(response),'ascii')
         self.request.sendall(response)
 
@@ -39,28 +50,8 @@ def get_input_list():
 def set_model(model):
     ThreadedTCPRequestHandler.model = model
 
-if __name__ == "__main__":
-    host = "0.0.0.0"
-    port = 4455
+def set_epsilon(epsilon):
+    ThreadedTCPRequestHandler.epsilon = epsilon
 
-    # Port 0 means to select an arbitrary unused port
-    HOST, PORT = host, port
-
-    server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
-    with server:
-        ip, port = server.server_address
-
-        # Start a thread with the server -- that thread will then start one
-        # more thread for each request
-        server_thread = threading.Thread(target=server.serve_forever)
-        # Exit the server thread when the main thread terminates
-        server_thread.daemon = True
-        server_thread.start()
-    
-        while(True):
-            time.sleep(1)
-            print(f"\r{get_len_input_list()}    ",end="")
-            if(get_len_input_list() > 1000):
-                get_input_list()
-
-        server.shutdown()
+def set_actions(actions):
+    ThreadedTCPRequestHandler.actions = actions

@@ -7,9 +7,9 @@ from torch.utils.data import Dataset, DataLoader
 import copy
 
 class DataPrepare(Dataset):
-    def __init__(self,inputSize=3,outputSize=3,trainPercent = 0.8,maxLen=10000):
+    def __init__(self,inputSize=3,actions=3,trainPercent = 0.8,maxLen=10000):
         self.inputSize = inputSize
-        self.outputSize = outputSize
+        self.outputSize = len(actions)
         
         self.trainPercent = trainPercent
         self.X1  = torch.zeros(1,inputSize)
@@ -19,7 +19,7 @@ class DataPrepare(Dataset):
         
         self.maxLength = maxLen
         
-        self.actionsDict = {}
+        self.actionsDict = {str(float(a)): i for i, a in enumerate(actions)}
     
     def __len__(self):
         return self.X1.shape[0]
@@ -29,7 +29,9 @@ class DataPrepare(Dataset):
     
     def add( self , add : list):
         for data in add:
-            [state1,action,profit,steps,state2] = data
+            [state1,state2,profit,action] = data
+            profit = profit[0]
+            action = action[0]
             
             ff=torch.tensor([*state1]).reshape((1,self.inputSize)).float()
             self.X1 = torch.cat((self.X1,ff), 0)
@@ -38,12 +40,7 @@ class DataPrepare(Dataset):
             
             self.reward = torch.cat((self.reward,torch.tensor([profit*1.0])))
             
-            try :
-                self.action = torch.cat((self.action,torch.tensor([self.actionsDict[str(action)]])))
-            except :
-                self.actionsDict[str(action)] = len(self.actionsDict)*1.0
-                self.action = torch.cat((self.action,torch.tensor([self.actionsDict[str(action)]])))
-                pass
+            self.action = torch.cat((self.action,torch.tensor([self.actionsDict[str(action)]])))
 
             
     def selection(self,n):
@@ -106,15 +103,16 @@ class NeuralNetwork(nn.Module):
         return o
 
 class RLAgent:
-    def __init__(self,discount_factor=0.9,hidden_size = 10, input_size=5, output_size = 4,learningRate=1e-5,
+    def __init__(self,discount_factor=0.9,hidden_size = 10, input_size=5, actions = [1, 2, 3],learningRate=1e-5,
                  device='cpu',stepSize=1000,gamma=0.98,momentum=0.9):
+        output_size = len(actions)
         self.device = device
         
         self.model = NeuralNetwork(hidden_size , input_size, output_size).to(self.device)
         # self.copyModel = copy.deepcopy(self.model).to(self.device)
         self.makeNewCopy()
         
-        self.dp = DataPrepare(input_size,output_size)
+        self.dp = DataPrepare(input_size,actions=actions)
 #        self.dl = DataLoader(dp, batch_size=batchSize,shuffle=True, num_workers=4)
         self.loss_fn = torch.nn.MSELoss()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learningRate,momentum=momentum)
@@ -161,7 +159,7 @@ class RLAgent:
                 try:
                     q[(notZero,a[notZero])]+=(self.discount_factor*torch.max(q[notZero],axis=1).values).float()
                 except:
-                    print('dastaaaaaan in nn')
+                    print('ERROR in nn')
                     pass
                 
                 loss = self.loss_fn(q,q_pred)
