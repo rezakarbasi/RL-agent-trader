@@ -113,7 +113,7 @@ void OnTick()
       else socket_new_state = StringFormat("%f,%f,%f", close, close, close);
       
       for (int i=0;i<len_indicators;i++) StringAdd(socket_new_state, StringFormat(",%f,%f",lowests[i],highests[i]));      
-      string sending_string = StringFormat("%s--%s--%f", socket_last_state, socket_new_state, trade_reward);
+      string sending_string = StringFormat("%s--%s--%f--%d", socket_last_state, socket_new_state, trade_reward, socket_choice);
       string o = SocketSendGet(sending_string);
       int out = StringToInteger(o);
       if (out>0 && out<5)socket_choice = out;
@@ -162,12 +162,15 @@ string SocketSendGet(string toPrint){
       while (StringLen(read)==0){
          read = socket.Receive();
          timeout ++;
-         if (timeout>30000){
+         if (timeout>100000){
+            Print("--------------Socket TIMEOUT-----------");
             return "0";
          }
       }
+      Print("--------------Socket ", read, "-----------");      
       return read;
    }
+   Print("--------------Socket NOT CONNECTED-----------");
    return "0";
 }
 
