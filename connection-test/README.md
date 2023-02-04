@@ -1,6 +1,6 @@
 # MQL - Python Connection Test
 
-This is a simple test to check the connection between MQL5 and Python. The instructions and code have been taken from the [MQL5 forum](https://www.mql5.com/en/blogs/post/706665) with the note that it is claimed to work with both MQL4 and MQL5, but the author has only tested it on MQL5.
+This is a simple test to check the connection between MQL5 and Python. The instructions and code have been taken from the [MQL5 forum](https://www.mql5.com/en/blogs/post/706665) with the note that it is claimed to work with both MQL4 and MQL5, but I've only tested it on MQL5.
 
 To set up the connection, follow these steps:
 
