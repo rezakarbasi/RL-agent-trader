@@ -79,8 +79,6 @@ class NeuralNetwork(nn.Module):
 
         self.bn1 = nn.BatchNorm1d(hidden_size)
         self.bn2 = nn.BatchNorm1d(hidden_size)
-        self.bn3 = nn.BatchNorm1d(hidden_size)
-        self.bn4 = nn.BatchNorm1d(output_size)
                 
     def forward(self, inputs):
         o=self.lin1(inputs)
@@ -92,26 +90,24 @@ class NeuralNetwork(nn.Module):
         o=F.relu(o)
 
         o=self.lin3(o)
-        o=self.bn3(o)
         o=F.relu(o)
 
         o=self.lin4(o)
-        o=self.bn4(o)
         
         return o
 
 class ReinforcementLearningAgent:
-    def __init__(self,discount_factor=0.9,hidden_size = 10, input_size=5, actions = [1, 2, 3],learning_rate=1e-3,
+    def __init__(self,discount_factor=0.9,hidden_size = 10, input_size=5, actions = [1, 2, 3],learning_rate=1e-4,
                  device='cpu',step_size=1000,gamma=0.98,momentum=0.9):
         output_size = len(actions)
         self.device = device
         
         self.model = NeuralNetwork(hidden_size , input_size, output_size).to(self.device)
-        self.makeNewCopy()
+        self.make_new_copy()
         
         self.dp = DataPrepare(input_size,actions=actions)
         self.loss_fn = torch.nn.MSELoss()
-        self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=learning_rate, momentum=momentum)
+        self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=learning_rate, weight_decay=0.001)
         # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=step_size, gamma=gamma)
         
         self.train_losses=[]
@@ -120,7 +116,7 @@ class ReinforcementLearningAgent:
         self.discount_factor = discount_factor
 
         
-    def trainData(self,data=[],epochs=100,batch_size=10):
+    def train_data(self,data=[],epochs=100,batch_size=10):
         self.dp.add(data)
     
         for _ in range(epochs):
@@ -166,12 +162,14 @@ class ReinforcementLearningAgent:
                 # self.scheduler.step()
             self.train_losses+=[sum_loss*batch_size/self.dp.X1.shape[0]]
 
-        self.makeNewCopy()
+            print(q_value.min(), q_value.max())
+
+        self.make_new_copy()
         
-    def makeNewCopy(self):
+    def make_new_copy(self):
         self.copy_model = copy.deepcopy(self.model).to(self.device)
     
-    def testData(self,data):
+    def test_data(self,data):
         self.copy_model.eval()
         data=data.to(self.device)
         return self.copy_model(data)

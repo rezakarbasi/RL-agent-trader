@@ -12,7 +12,7 @@ def decode_state(state):
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     input_list = []
     model = None
-    epsilon = 100
+    epsilon = 1
     actions = [1,2,3]
 
     def handle(self):
@@ -28,10 +28,12 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
         response = np.random.choice(ThreadedTCPRequestHandler.actions)
         if not isinstance(ThreadedTCPRequestHandler.model, type(None)):
-            q_value = (ThreadedTCPRequestHandler.model.testData(torch.tensor([[*encoded[1]]]))).cpu().detach().numpy()
-            prob = np.exp(q_value/ThreadedTCPRequestHandler.epsilon)[0]
-            prob /= np.sum(prob)
-            response = np.random.choice(ThreadedTCPRequestHandler.actions,p=prob)
+            q_value = (ThreadedTCPRequestHandler.model.test_data(torch.tensor([[*encoded[1]]]))).cpu().detach().numpy()
+            prob = q_value/ThreadedTCPRequestHandler.epsilon
+            prob = prob[0]
+            response = np.random.choice(ThreadedTCPRequestHandler.actions)
+            if np.random.rand()>ThreadedTCPRequestHandler.epsilon:
+                response = ThreadedTCPRequestHandler.actions[np.argmax(prob)]
             
         response = bytes(str(response),'ascii')
         self.request.sendall(response)

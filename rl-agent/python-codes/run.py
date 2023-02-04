@@ -16,9 +16,9 @@ actions = [1,2,3]
 epochs = 3
 batch_size = 100
 
-epsilon = 5
-epsilon_decay = 0.8
-epsilon_threshold = 0.5
+epsilon = 1
+epsilon_decay = 0.95
+epsilon_threshold = 0.1
 epsilon_counter = 0
 epsilon_step = 10
 
@@ -36,7 +36,7 @@ server_thread.start()
 set_actions(actions)
 
 actions = np.array([1,2,3])
-rl = ReinforcementLearningAgent(discount_factor=0.99,hidden_size = 50, input_size=15, actions = actions,
+rl = ReinforcementLearningAgent(discount_factor=0.9,hidden_size = 50, input_size=15, actions = actions,
              learning_rate=1e-4,device='cpu',step_size=1000,gamma=0.93)
 
 rewards = []
@@ -54,7 +54,7 @@ while(True):
             np.mean([record[2][0] for record in records])
         )
 
-        rl.trainData(records,epochs,batch_size)
+        rl.train_data(records,epochs,batch_size)
         rl.dp.selection(max_memory_capacity)
         
         if rl.train_losses[-1]==np.nan:
@@ -64,7 +64,7 @@ while(True):
         if epsilon_counter>epsilon_step:
             
             if epsilon<epsilon_threshold:
-                epsilon_decay=0.9
+                epsilon_decay=epsilon_threshold
                 
             epsilon*=epsilon_decay
             epsilon_counter=0
