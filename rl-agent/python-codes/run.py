@@ -9,8 +9,8 @@ from reinforcement_learning import ReinforcementLearningAgent
 from socket_handling import ThreadedTCPRequestHandler, ThreadedTCPServer, get_len_input_list, get_input_list, set_model, set_epsilon, set_actions
 
 #%% hyperparameters
-host = "0.0.0.0"
-port = 4455
+host = "127.0.0.1"
+port = 19968
 
 actions = [1,2,3]
 epochs = 3
