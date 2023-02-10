@@ -63,7 +63,6 @@ class DataPrepare(Dataset):
             
             self.add([[state1,period,profit,steps,state2]])
 
-
         
 class NeuralNetwork(nn.Module):
     def __init__(self,hidden_size = 10, input_size=5, output_size = 4):
